@@ -1,6 +1,7 @@
 import xarray as xr
 import numpy  as np
 import pandas as pd
+import os
 
 # !pip install OpenVisusNoGui
 import OpenVisus as ov
@@ -10,12 +11,13 @@ import OpenVisus as ov
 
 # ////////////////////////////////////////////////////////////
 class OpenVisusBackendArray(xr.backends.common.BackendArray):
+#     TODO: add num_refinements,quality
+#     TODO: adding it for normalized coordinates 
 
     # constructor
     def __init__(self,db, shape, dtype, timesteps,resolution,ncomponents):
         self.db    = db
         self.shape = shape
-        print(self.shape)
         self.dtype = dtype
         self.ncomponents=ncomponents
         self.pdim=db.getPointDim()
@@ -68,10 +70,12 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
             
 
         elif self.pdim==3:
+            
+            
             if type(self.resolution)==int:
-                r2=self.resolution
+                res2=self.resolution
             else:
-                r1,r2=self._getKeyRange(key[1])
+                res1,res2=self._getKeyRange(key[1])
             
 
             z1,z2=self._getKeyRange(key[2])
@@ -80,14 +84,14 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
 
             if type(self.timesteps)==int:
                 res2-=1
-                data=self.db.read(time=self.timesteps,max_resolution=r2, logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                data=self.db.read(time=self.timesteps,max_resolution=res2, logic_box=[(x1,y1,z1),(x2,y2,z2)])
                 
             else:
                 t1,t2=self._getKeyRange(key[0])
-                if type(t2) == int and type(r2)==int:
+                if type(t2) == int and type(res2)==int:
                     res2-=1
                     t2-=1
-                    data=self.db.read(time=t2, max_resolution=r2,logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                    data=self.db.read(time=t2, max_resolution=res2,logic_box=[(x1,y1,z1),(x2,y2,z2)])
                 else:
                     data=self.db.read(logic_box=[(x1,y1,z1),(x2,y2,z2)]) 
                 
@@ -105,6 +109,7 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
 
             # Z,Y,X,Channel
             elif self.pdim==3:
+
                 data=data[:,:,:,c1:c2]
 
             else:
@@ -123,9 +128,9 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
     # open_dataset
     def open_dataset(self,filename_or_obj,*, resolution=None, timesteps=None,drop_variables=None):
 
-
+        # TODO for now only full resoluton
         self.resolution=resolution
-
+        # TODO for now only default timestep
 
         data_vars={}
 
@@ -136,7 +141,13 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         dims=db.getLogicSize()
         if self.timesteps==None: 
             self.timesteps=[int(it) for it in db.getTimesteps().asVector()]
+            
+#         if self.resolution==None: 
+#             self.resolution=
+#         print(timesteps)
 
+#         print(db.getDatasetBody().toString())
+#         print("dim",dim, "dims",dims)
 
         # convert OpenVisus fields into xarray variables
         for fieldname in db.getFields():
@@ -159,10 +170,11 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
             elif dim==3:
                 labels=["z", "y", "x"]
             else:
-                raise Exception(todo)
+                raise Exception("assigning labels error")
+
 
             shape=list(reversed(dims))
-            if ncomponents>1:
+            if ncomponents>=1:
                 
                 labels.insert(0,"resolution")
                 labels.insert(0,"time")
@@ -193,6 +205,7 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
 
         ds = xr.Dataset(data_vars=data_vars)
         ds.set_close(self.close_method)
+        
         return ds
     
     # toNumPyDType (always pass the atomic OpenVisus type i.e. uint8[8] should not be accepted)
@@ -227,4 +240,3 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         except TypeError:
             return False
         return ext.lower()==".idx"
-
