@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy  as np
 import pandas as pd
-import os
+
 
 # !pip install OpenVisusNoGui
 import OpenVisus as ov
@@ -23,13 +23,6 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
         self.pdim=db.getPointDim()
         self.timesteps=timesteps
         self.resolution=resolution
-        
-
-    # __getitem__
-    def __getitem__(self, key: xr.core.indexing.ExplicitIndexer) -> np.typing.ArrayLike:
-        return xr.core.indexing.explicit_indexing_adapter(key,self.shape,
-                                                          xr.core.indexing.IndexingSupport.BASIC,
-                                                          self._raw_indexing_method)
 
     # _getKeyRange
     def _getKeyRange(self, value):
@@ -39,88 +32,91 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
     # __readSamples
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
         print("_raw_indexing_method","key",key)
-
         if self.pdim==2:
+            # getting selection from the data
+            t1,t2=self._getKeyRange(key[0])
+            y1,y2=self._getKeyRange(key[1])
+            x1,x2=self._getKeyRange(key[2])
+            c1,c2=self._getKeyRange(key[3])
             
-            y1,y2=self._getKeyRange(key[2])
-            x1,x2=self._getKeyRange(key[3])
-            
-            if type(self.resolution)==int:
-
-                res2=self.resolution
+            if isinstance(self.resolution,int):
+                res=self.resolution                
             else:
-                res1,res2=self._getKeyRange(key[1])
-            
-            
-            if type(self.timesteps)==int:
-                res2-=1
+                res,res1=self._getKeyRange(key[-1])
 
-                data=self.db.read(time=self.timesteps,max_resolution=res2, logic_box=[(x1,y1),(x2,y2)])
+                if res==0:
+                    
+                    res= self.db.getMaxResolution()
+                    print('Using Max Resolution: ',res) 
+            if isinstance(self.timesteps,int): 
+                data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1),(x2,y2)])
+            else:
                 
-            else:
-                t1,t2=self._getKeyRange(key[0])
-                if type(t2) ==int and type(res2)==int:
-                    res2-=1
-                    t2-=1
+                if isinstance(t1,int) and isinstance(res,int):
 
-                    data=self.db.read(time=t2,max_resolution=res2,logic_box=[(x1,y1),(x2,y2)])
+                    data=self.db.read(time=t1,max_resolution=res,logic_box=[(x1,y1),(x2,y2)])
                 else:
-                    data=self.db.read(logic_box=[(x1,y1),(x2,y2)])   
-                      
-            
-
+                    data=self.db.read(logic_box=[(x1,y1),(x2,y2)],max_resolution=self.db.getMaxResolution())   
+                
         elif self.pdim==3:
             
+            t1,t2=self._getKeyRange(key[0])
+            z1,z2=self._getKeyRange(key[1])
+            y1,y2=self._getKeyRange(key[2])
+            x1,x2=self._getKeyRange(key[3])            
             
-            if type(self.resolution)==int:
-                res2=self.resolution
+            if isinstance(self.resolution,int):
+                res=self.resolution
             else:
-                res1,res2=self._getKeyRange(key[1])
-            
+                res,res1=self._getKeyRange(key[-1])
 
-            z1,z2=self._getKeyRange(key[2])
-            y1,y2=self._getKeyRange(key[3])
-            x1,x2=self._getKeyRange(key[4])
-
-            if type(self.timesteps)==int:
-                res2-=1
-                data=self.db.read(time=self.timesteps,max_resolution=res2, logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                if res==0:
+                    self.shape.pop()
+                    res= self.db.getMaxResolution()
+                    print('Using Max Resolution: ',res)   
+            if isinstance(self.timesteps,int):
+                data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1,z1),(x2,y2,z2)])
+            elif len(self.timesteps)==1:
+                data=self.db.read(max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
+ 
+            else:
                 
-            else:
-                t1,t2=self._getKeyRange(key[0])
-                if type(t2) == int and type(res2)==int:
-                    res2-=1
-                    t2-=1
-                    data=self.db.read(time=t2, max_resolution=res2,logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                if isinstance(t1, int) and isinstance(res,int):
+
+                    data=self.db.read(time=t1, max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
                 else:
-                    data=self.db.read(logic_box=[(x1,y1,z1),(x2,y2,z2)]) 
-                
 
+                    data=self.db.read(logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                    
         else:
-            raise Exception("problem")
+            raise Exception("dimension error")
 
 #         # last key element is the channel
-        if self.ncomponents>1:
-            c1,c2=self._getKeyRange(key[-1])
-
-            # Y,X,Channel
+        print(data.shape)
+        
+        if self.ncomponents>1 :
+             #Y,X,Channel
             if self.pdim==2:
                 data=data[:,:,c1:c2]
 
+
             # Z,Y,X,Channel
             elif self.pdim==3:
+                c1,c2=self._getKeyRange(key[4])
 
                 data=data[:,:,:,c1:c2]
 
             else:
                 raise Exception("problem")
+        
+        return np.array([data]) 
+    # __getitem__
+    def __getitem__(self, key: xr.core.indexing.ExplicitIndexer) -> np.typing.ArrayLike:
+        return xr.core.indexing.explicit_indexing_adapter(key,self.shape,
+                                                          xr.core.indexing.IndexingSupport.BASIC,
+                                                          self._raw_indexing_method)
 
-        return data
 
-
-
-
-# ////////////////////////////////////////////////////////////
 class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
 
     open_dataset_parameters = ["filename_or_obj", "drop_variables", "resolution", "timesteps"]
@@ -128,9 +124,7 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
     # open_dataset
     def open_dataset(self,filename_or_obj,*, resolution=None, timesteps=None,drop_variables=None):
 
-        # TODO for now only full resoluton
         self.resolution=resolution
-        # TODO for now only default timestep
 
         data_vars={}
 
@@ -142,13 +136,6 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         if self.timesteps==None: 
             self.timesteps=[int(it) for it in db.getTimesteps().asVector()]
             
-#         if self.resolution==None: 
-#             self.resolution=
-#         print(timesteps)
-
-#         print(db.getDatasetBody().toString())
-#         print("dim",dim, "dims",dims)
-
         # convert OpenVisus fields into xarray variables
         for fieldname in db.getFields():
             field=db.getField(fieldname)
@@ -171,24 +158,24 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
                 labels=["z", "y", "x"]
             else:
                 raise Exception("assigning labels error")
-
-
-            shape=list(reversed(dims))
-            if ncomponents>=1:
                 
-                labels.insert(0,"resolution")
-                labels.insert(0,"time")
+            shape=list(reversed(dims))
+            
+            if ncomponents>1:
                 labels.append("channel")
                 shape.append(ncomponents)
-                if type(self.resolution) == int:
-                    shape.insert(0,self.resolution)  
-                else:
-                    shape.insert(0,db.getMaxResolution())
-                if type(self.timesteps) == int:
-                    shape.insert(0,self.timesteps)  
-                else:
-                    shape.insert(0,len(self.timesteps))
+            labels.insert(0,"time")
+            labels.append("resolution")
+            if isinstance(self.resolution,int):
                     
+                shape.append(self.resolution+1)  
+            else:
+                shape.append(db.getMaxResolution()+1)
+            if isinstance(self.timesteps, int):
+                shape.insert(0,self.timesteps+1)  
+            else:
+                shape.insert(0,len(self.timesteps))
+
 
 
             data_vars[fieldname]=xr.Variable(
@@ -200,10 +187,10 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
                 attrs={} # no attributes
             )
 
-            print("Adding field",fieldname,"shape",shape,"dtype",dtype,"labels",labels,"timesteps",self.timesteps,
-                 "Max Resolution", db.getMaxResolution())
-
+            print("Adding field ",fieldname,"shape ",shape,"dtype ",dtype,"labels ",labels,"timesteps ",self.timesteps,
+                 "Max Resolution ", db.getMaxResolution())
         ds = xr.Dataset(data_vars=data_vars)
+
         ds.set_close(self.close_method)
         
         return ds
@@ -229,7 +216,6 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
     def guess_can_open(self, filename_or_obj):
         print("guess_can_open",filename_or_obj)
 
-        # this are remote datasets
         # todo: extend to S3 datasets
         if "mod_visus" in filename_or_obj:
             return True
@@ -240,3 +226,5 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         except TypeError:
             return False
         return ext.lower()==".idx"
+
+
