@@ -1,0 +1,21 @@
+(version)
+6
+(box)
+0 1439 0 719
+(fields)
+analysed_sst float32 default_layout() default_value(0) min(0) max(0) 
++ analysis_error float32 default_layout() default_value(0) min(0) max(0) 
++ sea_ice_fraction float32 default_layout() default_value(0) min(0) max(0) 
++ mask float32 default_layout() default_value(0) min(0) max(0) 
+(bits)
+V001010101010101010101
+(bitsperblock)
+16
+(blocksperfile)
+32
+(interleave block)
+0
+(filename_template)
+./dummy/%04x.bin
+(missing_blocks)
+0
