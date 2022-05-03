@@ -1,0 +1,25 @@
+(version)
+6
+(box)
+0 13332 0 13332
+(fields)
+mask int8 default_layout() default_value(0) min(0) max(0) 
++ firn float32 default_layout() default_value(0) min(0) max(0) 
++ surface float32 default_layout() default_value(0) min(0) max(0) 
++ thickness float32 default_layout() default_value(0) min(0) max(0) 
++ bed float32 default_layout() default_value(0) min(0) max(0) 
++ errbed float32 default_layout() default_value(0) min(0) max(0) 
++ source int8 default_layout() default_value(0) min(0) max(0) 
++ geoid int16 default_layout() default_value(0) min(0) max(0) 
+(bits)
+V0101010101010101010101010101
+(bitsperblock)
+16
+(blocksperfile)
+21
+(interleave block)
+0
+(filename_template)
+./visus/%04x.bin
+(missing_blocks)
+0
