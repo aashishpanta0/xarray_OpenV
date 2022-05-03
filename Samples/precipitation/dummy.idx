@@ -1,0 +1,18 @@
+(version)
+6
+(box)
+0 1385 0 584 0 365
+(fields)
+precipitation_amount uint16 default_compression(zip) default_layout() default_value(0) min(0) max(0) 
+(bits)
+V001012012012012012012012012012
+(bitsperblock)
+16
+(blocksperfile)
+16384
+(interleave block)
+0
+(filename_template)
+./dummy/%04x.bin
+(missing_blocks)
+0

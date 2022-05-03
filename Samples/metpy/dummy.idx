@@ -1,0 +1,25 @@
+(version)
+6
+(box)
+0 291 0 117 0 28
+(fields)
+Temperature float32 default_layout() default_value(0) min(0) max(0) 
++ lat float64 default_layout() default_value(0) min(0) max(0) 
++ lon float64 default_layout() default_value(0) min(0) max(0) 
++ u_wind float32 default_layout() default_value(0) min(0) max(0) 
++ v_wind float32 default_layout() default_value(0) min(0) max(0) 
++ u_wind float32 default_layout() default_value(0) min(0) max(0) 
++ Geopotential_height float32 default_layout() default_value(0) min(0) max(0) 
++ Specific_humidity float32 default_layout() default_value(0) min(0) max(0) 
+(bits)
+V000101012012012012012
+(bitsperblock)
+16
+(blocksperfile)
+32
+(interleave block)
+0
+(filename_template)
+./dummy/%04x.bin
+(missing_blocks)
+0

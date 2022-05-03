@@ -15,9 +15,10 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
 #     TODO: adding it for normalized coordinates
 
     # constructor
-    def __init__(self,db, shape, dtype, timesteps,resolution,ncomponents,bool_coords):
+    def __init__(self,db, shape, dtype, timesteps,resolution,ncomponents,bool_coords,fieldname):
         self.db    = db
         self.shape = shape
+        self.fieldname=fieldname
         self.dtype = dtype
         self.bool_coords=bool_coords
         self.ncomponents=ncomponents
@@ -34,31 +35,45 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
         print("_raw_indexing_method","key",key)
         if self.pdim==2:
-        
-            # getting selection from the data
-            t1,t2=self._getKeyRange(key[0])
-            y1,y2=self._getKeyRange(key[1])
-            x1,x2=self._getKeyRange(key[2])
-            c1,c2=self._getKeyRange(key[3])
-            
-            if isinstance(self.resolution,int):
-                res=self.resolution
-            else:
-                res,res1=self._getKeyRange(key[-1])
-
-                if res==0:
-                    
-                    res= self.db.getMaxResolution()
-                    print('Using Max Resolution: ',res)
-            if isinstance(self.timesteps,int):
-                data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1),(x2,y2)])
+            if self.bool_coords==True:
+                y1,y2=self._getKeyRange(key[0])
+                x1,x2=self._getKeyRange(key[1])
+                if self.ncomponents>1:
+                    c1,c2=self._getKeyRange(key[2])
+                if isinstance(self.timesteps,int):
+                    data=self.db.read(time=self.timesteps,max_resolution=self.db.getMaxResolution(), logic_box=[(x1,y1),(x2,y2)],field=self.fieldname)
+                else:
+                    data=self.db.read(max_resolution=self.db.getMaxResolution(), logic_box=[(x1,y1),(x2,y2)],field=self.fieldname)
+                
             else:
                 
-                if isinstance(t1,int) and isinstance(res,int) and self.bool_coords==False:
-
-                    data=self.db.read(time=t1,max_resolution=res,logic_box=[(x1,y1),(x2,y2)])
+                
+                
+            
+            # getting selection from the data
+                t1,t2=self._getKeyRange(key[0])
+                y1,y2=self._getKeyRange(key[1])
+                x1,x2=self._getKeyRange(key[2])
+                c1,c2=self._getKeyRange(key[3])
+            
+                if isinstance(self.resolution,int):
+                    res=self.resolution
                 else:
-                    data=self.db.read(logic_box=[(x1,y1),(x2,y2)],max_resolution=self.db.getMaxResolution())
+                    res,res1=self._getKeyRange(key[-1])
+
+                    if res==0:
+                    
+                        res= self.db.getMaxResolution()
+                        print('Using Max Resolution: ',res)
+                if isinstance(self.timesteps,int):
+                    data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1),(x2,y2)],field=self.fieldname)
+                else:
+                
+                    if isinstance(t1,int) and isinstance(res,int) and self.bool_coords==False:
+
+                        data=self.db.read(time=t1,max_resolution=res,logic_box=[(x1,y1),(x2,y2)],field=self.fieldname)
+                    else:
+                        data=self.db.read(logic_box=[(x1,y1),(x2,y2)],max_resolution=self.db.getMaxResolution(),field=self.fieldname)
                 
         elif self.pdim==3:
             
@@ -78,12 +93,12 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
                     print('Using Max Resolution: ',res)
             if isinstance(self.timesteps,int):
                 x1,x2=self._getKeyRange(key[3])
-                data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1,z1),(x2,y2,z2)],field=self.fieldname)
             elif len(self.timesteps)==1 and self.bool_coords==False:
                 x1,x2=self._getKeyRange(key[3])
-                data=self.db.read(max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                data=self.db.read(max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)],field=self.fieldname)
             elif len(self.timesteps)==1 and self.bool_coords==True:
-                data=self.db.read(logic_box=[(y1,z1,t1),(y2,z2,t2)])
+                data=self.db.read(logic_box=[(y1,z1,t1),(y2,z2,t2)],field=self.fieldname)
  
             else:
                 
@@ -93,16 +108,15 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
                     data=self.db.read(time=t1, max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
                 elif isinstance(t1, int) and isinstance(res,int) and self.bool_coords==True:
 
-                    data=self.db.read(logic_box=[(y1,z1,t1),(y2,z2,t2)])
+                    data=self.db.read(logic_box=[(y1,z1,t1),(y2,z2,t2)],field=self.fieldname)
                 else:
-                    data=self.db.read(logic_box=[(x1,y1,z1),(x2,y2,z2)])
+                    data=self.db.read(logic_box=[(x1,y1,z1),(x2,y2,z2)],field=self.fieldname)
                     
                     
         else:
             raise Exception("dimension error")
 
 #         # last key element is the channel
-        print(data.shape)
         
         if self.ncomponents>1 :
              #Y,X,Channel
@@ -166,7 +180,7 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
             dtype=self.toNumPyDType(atomic_dtype)
             shape=list(reversed(dims))
             bool_coords=False
-        
+            
             if self.coordinates==None:
             
             
@@ -201,6 +215,7 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
             data_vars[fieldname]=xr.Variable(
                 labels,
                 xr.core.indexing.LazilyIndexedArray(OpenVisusBackendArray(db=db, shape=shape,dtype=dtype,
+                fieldname=fieldname,
                                                                           timesteps=self.timesteps,
                                                                           resolution=self.resolution,
                                                                           ncomponents=ncomponents,
