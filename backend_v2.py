@@ -26,26 +26,49 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
         self.resolution=resolution
 
     # _getKeyRange
+    def _getXRange(self, value):
+        if self.pdim==2:
+            A = value.start if isinstance(value, slice) else value    ; A = int(0)             if A is None else A
+            B = value.stop  if isinstance(value, slice) else value + 1; B = int(self.shape[2]) if B is None else B
+        if self.pdim==3:
+            A = value.start if isinstance(value, slice) else value    ; A = int(0)             if A is None else A
+            B = value.stop  if isinstance(value, slice) else value + 1; B = int(self.shape[3]) if B is None else B
+        return (A,B)
+    def _getYRange(self, value):
+        if self.pdim==2:
+            A = value.start if isinstance(value, slice) else value    ; A = 0             if A is None else A
+            B = value.stop  if isinstance(value, slice) else value + 1; B = int(self.shape[1]) if B is None else B
+        if self.pdim==3:
+            A = value.start if isinstance(value, slice) else value    ; A = int(0)             if A is None else A
+            B = value.stop  if isinstance(value, slice) else value + 1; B = int(self.shape[2]) if B is None else B
+        return (A,B)
+
     def _getKeyRange(self, value):
         A = value.start if isinstance(value, slice) else value    ; A = 0             if A is None else A
         B = value.stop  if isinstance(value, slice) else value + 1; B = np.max(self.shape) if B is None else B
         return (A,B)
+    
+    def _getTRange(self, value):
+
+        A =  value.start if isinstance(value, slice) else value    ;A= int(self.shape[0])-1 if A is None else A
+        B =  value.stop  if isinstance(value, slice) else value + 1; B=1 if B is None else B
+
+        return (A,B)
+    
     # __readSamples
     def _raw_indexing_method(self, key: tuple) -> np.typing.ArrayLike:
         print("_raw_indexing_method","key",key)
         if self.pdim==2:
-        
             # getting selection from the data
-            t1,t2=self._getKeyRange(key[0])
-            y1,y2=self._getKeyRange(key[1])
-            x1,x2=self._getKeyRange(key[2])
+            t1,t2=self._getTRange(key[0])
+            x1,x2=self._getXRange(key[2])
+            y1,y2=self._getYRange(key[1])
             c1,c2=self._getKeyRange(key[3])
-            
             if isinstance(self.resolution,int):
+                
                 res=self.resolution
             else:
                 res,res1=self._getKeyRange(key[-1])
-
                 if res==0:
                     
                     res= self.db.getMaxResolution()
@@ -53,34 +76,33 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
             if isinstance(self.timesteps,int):
                 data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1),(x2,y2)])
             else:
-                
-                if isinstance(t1,int) and isinstance(res,int) and self.bool_coords==False:
-
-                    data=self.db.read(time=t1,max_resolution=res,logic_box=[(x1,y1),(x2,y2)])
-                else:
-                    data=self.db.read(logic_box=[(x1,y1),(x2,y2)],max_resolution=self.db.getMaxResolution())
+                data=self.db.read(time=t1,max_resolution=res,logic_box=[(x1,y1),(x2,y2)])
+                # else:
+                #     data=self.db.read(logic_box=[(x1,y1),(x2,y2)],max_resolution=self.db.getMaxResolution())
                 
         elif self.pdim==3:
+            print('3D')
             
             t1,t2=self._getKeyRange(key[0])
             z1,z2=self._getKeyRange(key[1])
-            y1,y2=self._getKeyRange(key[2])
-            
-            
+            y1,y2=self._getYRange(key[2])
+             
             if isinstance(self.resolution,int):
                 res=self.resolution
             else:
                 res,res1=self._getKeyRange(key[-1])
+                print('here')
 
                 if res==0:
+                    print('hereee')
                     self.shape.pop()
                     res= self.db.getMaxResolution()
                     print('Using Max Resolution: ',res)
             if isinstance(self.timesteps,int):
-                x1,x2=self._getKeyRange(key[3])
+                x1,x2=self._getXRange(key[3])
                 data=self.db.read(time=self.timesteps,max_resolution=res, logic_box=[(x1,y1,z1),(x2,y2,z2)])
             elif len(self.timesteps)==1 and self.bool_coords==False:
-                x1,x2=self._getKeyRange(key[3])
+                x1,x2=self._getXRange(key[3])
                 data=self.db.read(max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
             elif len(self.timesteps)==1 and self.bool_coords==True:
                 data=self.db.read(logic_box=[(y1,z1,t1),(y2,z2,t2)])
@@ -88,7 +110,7 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
             else:
                 
                 if isinstance(t1, int) and isinstance(res,int) and self.bool_coords==False:
-                    x1,x2=self._getKeyRange(key[3])
+                    x1,x2=self._getXRange(key[3])
 
                     data=self.db.read(time=t1, max_resolution=res,logic_box=[(x1,y1,z1),(x2,y2,z2)])
                 elif isinstance(t1, int) and isinstance(res,int) and self.bool_coords==True:
@@ -129,17 +151,19 @@ class OpenVisusBackendArray(xr.backends.common.BackendArray):
 
 class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
 
-    open_dataset_parameters = ["filename_or_obj", "drop_variables", "resolution", "timesteps","coords","attrs","dims"]
+    open_dataset_parameters = ["filename_or_obj", "drop_variables", "resolution", "timesteps","coords","da_attrs","ds_attrs","dims"]
     
     # open_dataset
-    def open_dataset(self,filename_or_obj,*, resolution=None, timesteps=None,drop_variables=None,coords=None,attrs=None,dims=None):
+    def open_dataset(self,filename_or_obj,*, resolution=None, timesteps=None,drop_variables=None,coords=None,da_attrs=None,ds_attrs=None,dims=None):
 
         self.resolution=resolution
 
         data_vars={}
-        self.coordinates=coords
-        self.attributes=attrs
+        self.ds_attrs=ds_attrs
+        self.da_attrs=da_attrs
         self.dimensions=dims
+        self.coords=coords
+        # print(dims)
 
         db=ov.LoadDataset(filename_or_obj)
 #         print(db.getMaxResolution())
@@ -147,7 +171,7 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         dim=db.getPointDim()
         dims=db.getLogicSize()
         if self.timesteps==None:
-            self.timesteps=[int(it) for it in db.getTimesteps().asVector()]
+            self.timesteps=db.getTimesteps()
             
         # convert OpenVisus fields into xarray variables
         for fieldname in db.getFields():
@@ -167,17 +191,15 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
             shape=list(reversed(dims))
             bool_coords=False
         
-            if self.coordinates==None:
-            
-            
+            if True:
                 if dim==2:
-                    labels=["y", "x"]
+                    labels=["x", "y"]
                 elif dim==3:
-                    labels=["z", "y", "x"]
+                    labels=["x", "y", "z"]
                 else:
                     raise Exception("assigning labels error")
                 
-#                shape=list(reversed(dims))
+            #    shape=list(reversed(dims))
             
                 if ncomponents>1:
                     labels.append("channel")
@@ -204,13 +226,21 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
                                                                           timesteps=self.timesteps,
                                                                           resolution=self.resolution,
                                                                           ncomponents=ncomponents,
-                                                                          bool_coords=bool_coords)),
-                attrs={} # no attributes
+                                                                          bool_coords=bool_coords))
+                # no attributes
             )
 
             print("Adding field ",fieldname,"shape ",shape,"dtype ",dtype,"labels ",labels,"timesteps ",self.timesteps,
                  "Max Resolution ", db.getMaxResolution())
-        ds = xr.Dataset(data_vars=data_vars,coords=self.coordinates, attrs=self.attributes)
+            if da_attrs!=None and fieldname in da_attrs:
+                attr=da_attrs[fieldname]
+                for keys in attr:
+                    data_vars[fieldname].attrs[keys]=attr[keys]
+                
+            
+        ds = xr.Dataset(data_vars=data_vars,coords=coords)
+        if ds_attrs!=None:
+            ds.assign_attrs(ds_attrs)
 
         ds.set_close(self.close_method)
         
