@@ -291,15 +291,3 @@ def load_pickle(filename):
         data=pickle.load(fb)
     return data
     
-def open_dataset(filename):
-    idx_file=filename[:-3]
-    idx_file=idx_file+'.idx'
-    print('Loading IDX file: '+str(idx_file))
-    d=xr.open_dataset(filename)
-    ds=xr.Dataset()
-    db=ov.LoadDataset(idx_file)
-    for f in db.getFields():
-        data=db.read(field=f)
-        ds[f]=xr.DataArray(data,dims=d[f].dims,coords=d[f].coords,attrs=d[f].attrs)
-        
-    return ds

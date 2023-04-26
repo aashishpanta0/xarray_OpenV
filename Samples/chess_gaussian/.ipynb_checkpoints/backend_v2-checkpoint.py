@@ -1,7 +1,7 @@
 import xarray as xr
 import numpy  as np
 import pandas as pd
-
+import pickle
 
 # !pip install OpenVisusNoGui
 import OpenVisus as ov
@@ -280,3 +280,26 @@ class OpenVisusBackendEntrypoint(xr.backends.common.BackendEntrypoint):
         return ext.lower()==".idx"
 
 
+def save_pickle(values,filename):
+    with open(filename,'wb') as fb:
+        pickle.dump(values,fb)
+    print('json saved locally')
+    return
+        
+def load_pickle(filename):
+    with open(filename,'rb') as fb:
+        data=pickle.load(fb)
+    return data
+    
+def open_dataset(filename):
+    idx_file=filename[:-3]
+    idx_file=idx_file+'.idx'
+    print('Loading IDX file: '+str(idx_file))
+    d=xr.open_dataset(filename)
+    ds=xr.Dataset()
+    db=ov.LoadDataset(idx_file)
+    for f in db.getFields():
+        data=db.read(field=f)
+        ds[f]=xr.DataArray(data,dims=d[f].dims,coords=d[f].coords,attrs=d[f].attrs)
+        
+    return ds
